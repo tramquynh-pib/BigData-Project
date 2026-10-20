@@ -1,7 +1,6 @@
 import pandas as pd
 import os
 
-
 # Đọc dữ liệu gốc
 df = pd.read_csv("market_listings_new.csv")
 
@@ -47,7 +46,7 @@ print("\n==========================================")
 print("2.2.2 CHUẨN HÓA KIỂU DỮ LIỆU")
 print("==========================================")
 
-# Các cột cần chuyển sang kiểu số
+# Các cột cần chuyển sang kiểu dữ liệu số
 numeric_columns = [
     "sale_price_vnd",
     "list_price_vnd",
@@ -56,28 +55,84 @@ numeric_columns = [
     "review_count"
 ]
 
-# Chuyển sang kiểu số
-# Giá trị sai định dạng sẽ được chuyển thành NaN
+# Chuyển các cột số về kiểu numeric
 for col in numeric_columns:
     df[col] = pd.to_numeric(
         df[col],
         errors="coerce"
     )
 
-# Chuyển crawled_at sang kiểu datetime
-# Giá trị sai định dạng sẽ được chuyển thành NaT
+# Chuẩn hóa cột thời gian
 df["crawled_at"] = pd.to_datetime(
     df["crawled_at"],
     errors="coerce"
 )
 
+# Chuẩn hóa cột availability
+def clean_availability(value):
+
+    # Nếu dữ liệu bị thiếu
+    if pd.isna(value):
+        return "Unknown"
+
+    value = str(value).strip()
+
+    # Trường hợp dữ liệu đã thể hiện InStock
+    if "InStock" in value or "instock" in value.lower():
+        return "InStock"
+
+    # Trường hợp dữ liệu là số lượng tồn kho
+    try:
+        quantity = float(value)
+
+        if quantity > 0:
+            return "InStock"
+        else:
+            return "Unknown"
+
+    except:
+        return "Unknown"
+
+
+df["availability"] = df["availability"].apply(
+    clean_availability
+)
+
+# Kiểm tra kết quả chuẩn hóa
 print("\nKiểu dữ liệu sau khi chuẩn hóa:")
-print(df.dtypes)
+
+print(df[numeric_columns].dtypes)
+
+print("\nKiểu dữ liệu crawled_at:")
+print(df["crawled_at"].dtype)
+
+print("\nKiểu dữ liệu availability:")
+print(df["availability"].dtype)
+
+print("\nPhân bố availability sau chuẩn hóa:")
+print(
+    df["availability"]
+    .value_counts(dropna=False)
+)
 
 # Kiểm tra giá trị thiếu phát sinh
-# do dữ liệu sai định dạng
-print("\nGiá trị thiếu phát sinh sau khi chuyển kiểu:")
-print(df.isnull().sum())
+print("\nSố giá trị thiếu sau khi chuyển đổi kiểu dữ liệu:")
+
+for col in numeric_columns:
+    print(
+        f"{col}:",
+        df[col].isna().sum()
+    )
+
+print(
+    "crawled_at:",
+    df["crawled_at"].isna().sum()
+)
+
+print(
+    "availability:",
+    df["availability"].isna().sum()
+)
 
 
 print("\n==========================================")
@@ -165,10 +220,6 @@ df["brand"] = (
 
 
 #  Xử lý các thuộc tính thiếu khác
-# Availability thiếu → Unknown
-df["availability"] = df["availability"].fillna(
-    "Unknown"
-)
 
 # Giá niêm yết thiếu → dùng giá bán
 df["list_price_vnd"] = df["list_price_vnd"].fillna(
@@ -319,9 +370,6 @@ print(
         df["list_price_vnd"]
     ).sum()
 )
-# ==========================================
-# 2.2.5 TẠO THUỘC TÍNH PHỤC VỤ PHÂN TÍCH
-# ==========================================
 
 print("\n==========================================")
 print("2.2.5 TẠO THUỘC TÍNH PHỤC VỤ PHÂN TÍCH")
