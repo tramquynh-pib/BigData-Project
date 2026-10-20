@@ -42,103 +42,256 @@ print(
         ]
     ].describe()
 )
+
 print("\n==========================================")
-print("2.2.2 XỬ LÝ DỮ LIỆU THIẾU VÀ TRÙNG")
+print("2.2.2 CHUẨN HÓA KIỂU DỮ LIỆU")
 print("==========================================")
 
-selected_columns = [
-    "name",
-    "brand",
-    "source",
-    "category_context",
+# Các cột cần chuyển sang kiểu số
+numeric_columns = [
     "sale_price_vnd",
     "list_price_vnd",
     "quantity_sold",
     "rating",
-    "review_count",
-    "availability",
-    "product_url",
-    "crawled_at",
-    "listing_id"
+    "review_count"
 ]
 
-df = df[selected_columns].copy()
+# Chuyển sang kiểu số
+# Giá trị sai định dạng sẽ được chuyển thành NaN
+for col in numeric_columns:
+    df[col] = pd.to_numeric(
+        df[col],
+        errors="coerce"
+    )
 
-print("Số cột sau khi chọn:", df.shape[1])
-print("Các cột được giữ lại:")
-print(df.columns.tolist())
-# Xử lý brand thiếu
-df["brand"] = df["brand"].fillna("Unknown")
-
-# Xử lý availability thiếu
-df["availability"] = df["availability"].fillna("Unknown")
-
-# Xử lý list_price thiếu
-df["list_price_vnd"] = df["list_price_vnd"].fillna(
-    df["sale_price_vnd"]
-)
-
-print("\nDữ liệu thiếu sau khi xử lý:")
-print(df.isnull().sum())
-before = len(df)
-
-df = df.drop_duplicates()
-
-after = len(df)
-
-print("\nSố dòng trước khi loại trùng:", before)
-print("Số dòng sau khi loại trùng:", after)
-print("Số dòng bị loại:", before - after)
-print("\n==========================================")
-print("2.2.3 CHUẨN HÓA KIỂU DỮ LIỆU")
-print("==========================================")
-
-# Các cột số
-df["sale_price_vnd"] = pd.to_numeric(
-    df["sale_price_vnd"],
-    errors="coerce"
-)
-
-df["list_price_vnd"] = pd.to_numeric(
-    df["list_price_vnd"],
-    errors="coerce"
-)
-
-df["quantity_sold"] = pd.to_numeric(
-    df["quantity_sold"],
-    errors="coerce"
-)
-
-df["rating"] = pd.to_numeric(
-    df["rating"],
-    errors="coerce"
-)
-
-df["review_count"] = pd.to_numeric(
-    df["review_count"],
-    errors="coerce"
-)
-
-# Ngày thu thập
+# Chuyển crawled_at sang kiểu datetime
+# Giá trị sai định dạng sẽ được chuyển thành NaT
 df["crawled_at"] = pd.to_datetime(
     df["crawled_at"],
     errors="coerce"
 )
 
-print("\nKiểu dữ liệu sau chuẩn hóa:")
+print("\nKiểu dữ liệu sau khi chuẩn hóa:")
 print(df.dtypes)
+
+# Kiểm tra giá trị thiếu phát sinh
+# do dữ liệu sai định dạng
+print("\nGiá trị thiếu phát sinh sau khi chuyển kiểu:")
+print(df.isnull().sum())
+
+
+print("\n==========================================")
+print("2.2.3 XỬ LÝ DỮ LIỆU THIẾU VÀ TRÙNG LẶP")
+print("==========================================")
+
+# Chuẩn hóa các giá trị được xem là thiếu
+df = df.replace(
+    [
+        "Không có thông tin",
+        "không có thông tin",
+        "N/A",
+        "n/a",
+        "NA",
+        "null",
+        "None",
+        ""
+    ],
+    pd.NA
+)
+
+# Xóa sản phẩm thiếu thông tin quan trọng
+before_missing = len(df)
+
+# Không có tên, giá bán hoặc brand → xóa
+df = df.dropna(
+    subset=[
+        "name",
+        "sale_price_vnd",
+        "brand"
+    ]
+)
+
+after_missing = len(df)
+
+print("\nXử lý sản phẩm thiếu tên, giá hoặc brand:")
+print("Số dòng trước:", before_missing)
+print("Số dòng sau:", after_missing)
+print(
+    "Số dòng bị xóa:",
+    before_missing - after_missing
+)
+
+# Chuẩn hóa tên sản phẩm
+df["name"] = (
+    df["name"]
+    .astype(str)
+    .str.strip()
+    .str.replace(r"\s+", " ", regex=True)
+)
+
+
+# Chuẩn hóa tên thương hiệu
+
+df["brand"] = (
+    df["brand"]
+    .astype(str)
+    .str.strip()
+    .str.replace(r"\s+", " ", regex=True)
+)
+
+brand_mapping = {
+    "apple": "Apple",
+    "samsung": "Samsung",
+    "xiaomi": "Xiaomi",
+    "oppo": "OPPO",
+    "vivo": "Vivo",
+    "asus": "ASUS",
+    "acer": "Acer",
+    "lenovo": "Lenovo",
+    "hp": "HP",
+    "dell": "Dell",
+    "sony": "Sony",
+    "lg": "LG",
+    "jbl": "JBL"
+}
+
+brand_clean = df["brand"].str.lower()
+
+df["brand"] = (
+    brand_clean
+    .map(brand_mapping)
+    .fillna(df["brand"])
+)
+
+
+#  Xử lý các thuộc tính thiếu khác
+# Availability thiếu → Unknown
+df["availability"] = df["availability"].fillna(
+    "Unknown"
+)
+
+# Giá niêm yết thiếu → dùng giá bán
+df["list_price_vnd"] = df["list_price_vnd"].fillna(
+    df["sale_price_vnd"]
+)
+
+# Xử lý dữ liệu trùng lặp
+
+before_duplicate = len(df)
+
+df = df.drop_duplicates()
+
+after_duplicate = len(df)
+
+print("\nXử lý dữ liệu trùng lặp:")
+print("Số dòng trước:", before_duplicate)
+print("Số dòng sau:", after_duplicate)
+print(
+    "Số dòng trùng bị xóa:",
+    before_duplicate - after_duplicate
+)
+
+
+# Kiểm tra lại dữ liệu thiếu
+print("\nDữ liệu thiếu sau khi xử lý:")
+print(df.isnull().sum())
+
 print("\n==========================================")
 print("2.2.4 XỬ LÝ DỮ LIỆU KHÔNG HỢP LỆ")
 print("==========================================")
 
+
+# Xác định các điều kiện dữ liệu không hợp lệ
+invalid_price = (
+    df["sale_price_vnd"] <= 0
+)
+
+invalid_rating = (
+    (df["rating"] < 0) |
+    (df["rating"] > 5)
+)
+
+invalid_review = (
+    df["review_count"] < 0
+)
+
+invalid_quantity = (
+    df["quantity_sold"] < 0
+)
+
+# Giá bán lớn hơn giá niêm yết
+invalid_price_order = (
+    df["sale_price_vnd"] >
+    df["list_price_vnd"]
+)
+
+# Đếm dữ liệu không hợp lệ
+
+print("\nSố lượng dữ liệu không hợp lệ:")
+
 print(
     "Giá bán <= 0:",
-    (df["sale_price_vnd"] <= 0).sum()
+    invalid_price.sum()
 )
 
 print(
-    "Giá niêm yết <= 0:",
-    (df["list_price_vnd"] <= 0).sum()
+    "Rating ngoài khoảng 0-5:",
+    invalid_rating.sum()
+)
+
+print(
+    "Review_count âm:",
+    invalid_review.sum()
+)
+
+print(
+    "Quantity_sold âm:",
+    invalid_quantity.sum()
+)
+
+print(
+    "Giá bán > giá niêm yết:",
+    invalid_price_order.sum()
+)
+
+# Loại bỏ dữ liệu không hợp lệ
+before_invalid = len(df)
+
+df = df[
+    ~invalid_price &
+    ~invalid_rating &
+    ~invalid_review &
+    ~invalid_quantity &
+    ~invalid_price_order
+].copy()
+
+after_invalid = len(df)
+
+
+print("\nKết quả xử lý dữ liệu không hợp lệ:")
+print(
+    "Số dòng trước:",
+    before_invalid
+)
+
+print(
+    "Số dòng sau:",
+    after_invalid
+)
+
+print(
+    "Số dòng bị loại:",
+    before_invalid - after_invalid
+)
+
+
+# Kiểm tra lại sau khi xử lý
+
+print("\nKiểm tra dữ liệu không hợp lệ sau khi xử lý:")
+
+print(
+    "Giá bán <= 0:",
+    (df["sale_price_vnd"] <= 0).sum()
 )
 
 print(
@@ -150,17 +303,17 @@ print(
 )
 
 print(
-    "Review âm:",
+    "Review_count âm:",
     (df["review_count"] < 0).sum()
 )
 
 print(
-    "Số lượng bán âm:",
+    "Quantity_sold âm:",
     (df["quantity_sold"] < 0).sum()
 )
 
 print(
-    "Giá bán lớn hơn giá niêm yết:",
+    "Giá bán > giá niêm yết:",
     (
         df["sale_price_vnd"] >
         df["list_price_vnd"]
