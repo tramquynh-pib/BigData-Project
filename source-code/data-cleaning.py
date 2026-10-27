@@ -2,7 +2,7 @@ import pandas as pd
 import os
 
 # Đọc dữ liệu gốc
-df = pd.read_csv("market_listings_new.csv")
+df = pd.read_csv("market_listings.csv")
 
 print("\n==========================================")
 print("2.2.1 KHẢO SÁT CHẤT LƯỢNG DỮ LIỆU")
